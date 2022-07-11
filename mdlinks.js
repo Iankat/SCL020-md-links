@@ -5,24 +5,27 @@ const cheerio = require("cheerio");
 const axios = require("axios").default;
 
 // Extract Links
-const processMd = (path, options) => { //
+const processMd = (path, options) => {
   try {
     const data = fs.readFileSync('./demo.md', 'utf8'); //Read the file and return its content
     const html = marked.parse(data); //Links to HTML
-    const $ = cheerio.load(html) //transforma html en objeto
+    const $ = cheerio.load(html)
     const linkObjects = $('a'); // <a>
     
-    const linkArr = []; 
+    const linkArr = [];
 
-    linkObjects.each((index, link) => { //Rellena linkArr bajo el formato 
+    linkObjects.each((index, link) => {
       linkArr.push({
         text: $(link).text(), // get the text
-        href: $(link).attr('href'), // get the href attribute
-        file: path, 
+        href: $(link).attr('href'),
+        file: path, // get the href attribute
       });
     })
     if(options.validate) {
       return validateLinks(linkArr)
+    }
+    else if(options.stats){
+      return stats(linkArr)
     }
     else {
       console.log(linkArr)
@@ -32,36 +35,39 @@ const processMd = (path, options) => { //
   }
 };
 
-const validateLinks = (linkArr) => { //validación de links
+const validateLinks = (linkArr) => {
   console.log("Validando...")
-  const promisesArray = [] //Guarda las promesas
-  linkArr.forEach((link) => { 
-    const ax = axios.get(link.href).then((res) => { //Se ejecuta axios 
-      link.status = res.status  //Validación de status del link
-      link.ok = res.statusText //Validación 
-      return link //LinkArr + respuesta axios
+  const promisesArray = []
+  linkArr.forEach((link) => {
+    const ax = axios.get(link.href).then((res) => {
+      link.status = res.status
+      link.ok = res.statusText === 'OK' ? "OK" : "Fail"
+      return link
     }).catch( (error) => {
       if(error.response){
         link.status = error.response.status
-        link.ok = error.response.statusText
+        link.ok = "Fail"
       } else {
         link.status = ''
         link.ok = 'Fail'
       }
       return link
     })
-    promisesArray.push(ax) //Pushea axios callback
+    promisesArray.push(ax)
   });
-  
 
-  Promise.all(promisesArray).then( (res) => { //Llama todas las promesas de axios
+  Promise.all(promisesArray).then( (res) => {
     console.log(res)
   })
 }
 
-
-
-// //Stats
+const stats = (linkArr) => {
+  const stats = {}
+  const linksList = linkArr.map(link => link.href)
+  stats.total = linkArr.length
+  stats.unique = [...new Set(linksList)].length;
+  console.log(stats)
+}
 
 module.exports = {
   processMd
